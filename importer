@@ -635,14 +635,6 @@ local function injectStudioLiteUI(scr, sourceMap)
     end)
 end
 
-local SVC_MAP = {
-    Workspace = workspace, ReplicatedStorage = ReplicatedStorage,
-    ReplicatedFirst = game:GetService("ReplicatedFirst"), StarterGui = game:GetService("StarterGui"),
-    StarterPack = game:GetService("StarterPack"), StarterPlayer = game:GetService("StarterPlayer"),
-    Lighting = game:GetService("Lighting"), SoundService = game:GetService("SoundService"),
-    ServerScriptService = _G.sss or ReplicatedStorage, ServerStorage = _G.ss or ReplicatedStorage,
-    Teams = ReplicatedStorage, Chat = ReplicatedStorage
-}
 
 local function setEnumFromValue(obj, propName, rawValue)
     local okCurrent, current = pcall(function() return obj[propName] end)
@@ -2391,176 +2383,178 @@ gradient(header, {
 bevelStroke(header, true, 1.2, 0.3)
 gloss(header, 0.5, 0.12)
 
-local avatarWrap = Instance.new("Frame")
-avatarWrap.Name = "AvatarWrap"
-avatarWrap.Size = UDim2.fromOffset(48, 48)
-avatarWrap.Position = UDim2.fromOffset(10, 10)
-avatarWrap.BackgroundTransparency = 1
-avatarWrap.ZIndex = 12
-avatarWrap.Parent = header
+do
+    local avatarWrap = Instance.new("Frame")
+    avatarWrap.Name = "AvatarWrap"
+    avatarWrap.Size = UDim2.fromOffset(48, 48)
+    avatarWrap.Position = UDim2.fromOffset(10, 10)
+    avatarWrap.BackgroundTransparency = 1
+    avatarWrap.ZIndex = 12
+    avatarWrap.Parent = header
 
-local avatarGlow = Instance.new("Frame")
-avatarGlow.Size = UDim2.fromOffset(52, 52)
-avatarGlow.Position = UDim2.fromOffset(-2, -2)
-avatarGlow.BackgroundColor3 = P.neonPurple
-avatarGlow.BackgroundTransparency = 0.55
-avatarGlow.BorderSizePixel = 0
-avatarGlow.ZIndex = 12
-avatarGlow.Parent = avatarWrap
-round(avatarGlow, 26)
+    local avatarGlow = Instance.new("Frame")
+    avatarGlow.Size = UDim2.fromOffset(52, 52)
+    avatarGlow.Position = UDim2.fromOffset(-2, -2)
+    avatarGlow.BackgroundColor3 = P.neonPurple
+    avatarGlow.BackgroundTransparency = 0.55
+    avatarGlow.BorderSizePixel = 0
+    avatarGlow.ZIndex = 12
+    avatarGlow.Parent = avatarWrap
+    round(avatarGlow, 26)
 
-local avatarRing = Instance.new("Frame")
-avatarRing.Size = UDim2.fromOffset(48, 48)
-avatarRing.Position = UDim2.fromOffset(0, 0)
-avatarRing.BackgroundColor3 = P.bg1
-avatarRing.BorderSizePixel = 0
-avatarRing.ZIndex = 13
-avatarRing.Parent = avatarWrap
-round(avatarRing, 24)
+    local avatarRing = Instance.new("Frame")
+    avatarRing.Size = UDim2.fromOffset(48, 48)
+    avatarRing.Position = UDim2.fromOffset(0, 0)
+    avatarRing.BackgroundColor3 = P.bg1
+    avatarRing.BorderSizePixel = 0
+    avatarRing.ZIndex = 13
+    avatarRing.Parent = avatarWrap
+    round(avatarRing, 24)
 
-local avatarRingStroke = Instance.new("UIStroke")
-avatarRingStroke.Color = P.neonCyan
-avatarRingStroke.Thickness = 2
-avatarRingStroke.Transparency = 0.05
-avatarRingStroke.Parent = avatarRing
+    local avatarRingStroke = Instance.new("UIStroke")
+    avatarRingStroke.Color = P.neonCyan
+    avatarRingStroke.Thickness = 2
+    avatarRingStroke.Transparency = 0.05
+    avatarRingStroke.Parent = avatarRing
 
-local avatarImg = Instance.new("ImageLabel")
-avatarImg.Name = "Avatar"
-avatarImg.Size = UDim2.fromScale(1, 1)
-avatarImg.BackgroundTransparency = 1
-avatarImg.Image = ("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150&filters=circular"):format(LocalPlayer.UserId)
-avatarImg.ZIndex = 14
-avatarImg.Parent = avatarRing
-round(avatarImg, 24)
+    local avatarImg = Instance.new("ImageLabel")
+    avatarImg.Name = "Avatar"
+    avatarImg.Size = UDim2.fromScale(1, 1)
+    avatarImg.BackgroundTransparency = 1
+    avatarImg.Image = ("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150&filters=circular"):format(LocalPlayer.UserId)
+    avatarImg.ZIndex = 14
+    avatarImg.Parent = avatarRing
+    round(avatarImg, 24)
 
-task.spawn(function()
-    task.wait(2)
-    if avatarImg and avatarImg.Parent then
-        pcall(function()
-            if avatarImg.IsLoaded == false then
-                avatarImg.Image = ("rbxthumb://type=AvatarBust&id=%d&w=150&h=150"):format(LocalPlayer.UserId)
-            end
-        end)
-    end
-end)
+    task.spawn(function()
+        task.wait(2)
+        if avatarImg and avatarImg.Parent then
+            pcall(function()
+                if avatarImg.IsLoaded == false then
+                    avatarImg.Image = ("rbxthumb://type=AvatarBust&id=%d&w=150&h=150"):format(LocalPlayer.UserId)
+                end
+            end)
+        end
+    end)
 
-local onlineDot = Instance.new("Frame")
-onlineDot.Size = UDim2.fromOffset(10, 10)
-onlineDot.Position = UDim2.new(1, -8, 1, -8)
-onlineDot.BackgroundColor3 = P.ok
-onlineDot.BorderSizePixel = 0
-onlineDot.ZIndex = 15
-onlineDot.Parent = avatarRing
-round(onlineDot, 5)
-stroke(onlineDot, P.bg0, 2.5, 0)
+    local onlineDot = Instance.new("Frame")
+    onlineDot.Size = UDim2.fromOffset(10, 10)
+    onlineDot.Position = UDim2.new(1, -8, 1, -8)
+    onlineDot.BackgroundColor3 = P.ok
+    onlineDot.BorderSizePixel = 0
+    onlineDot.ZIndex = 15
+    onlineDot.Parent = avatarRing
+    round(onlineDot, 5)
+    stroke(onlineDot, P.bg0, 2.5, 0)
 
-local onlinePulse = Instance.new("UIStroke")
-onlinePulse.Color = P.ok; onlinePulse.Thickness = 4; onlinePulse.Transparency = 0.4
-onlinePulse.Parent = onlineDot
+    local onlinePulse = Instance.new("UIStroke")
+    onlinePulse.Color = P.ok; onlinePulse.Thickness = 4; onlinePulse.Transparency = 0.4
+    onlinePulse.Parent = onlineDot
 
-task.spawn(function()
-    while onlinePulse.Parent do
-        TweenService:Create(onlinePulse, TweenInfo.new(1.2, Enum.EasingStyle.Sine), {Transparency = 0.9}):Play()
-        task.wait(1.2)
-        if not onlinePulse.Parent then break end
-        TweenService:Create(onlinePulse, TweenInfo.new(1.2, Enum.EasingStyle.Sine), {Transparency = 0.4}):Play()
-        task.wait(1.2)
-    end
-end)
+    task.spawn(function()
+        while onlinePulse.Parent do
+            TweenService:Create(onlinePulse, TweenInfo.new(1.2, Enum.EasingStyle.Sine), {Transparency = 0.9}):Play()
+            task.wait(1.2)
+            if not onlinePulse.Parent then break end
+            TweenService:Create(onlinePulse, TweenInfo.new(1.2, Enum.EasingStyle.Sine), {Transparency = 0.4}):Play()
+            task.wait(1.2)
+        end
+    end)
 
-local displayNameLabel = Instance.new("TextLabel")
-displayNameLabel.Name = "DisplayName"
-displayNameLabel.Size = UDim2.new(1, -190, 0, 16)
-displayNameLabel.Position = UDim2.fromOffset(68, 12)
-displayNameLabel.BackgroundTransparency = 1
-displayNameLabel.Text = LocalPlayer.DisplayName or LocalPlayer.Name
-displayNameLabel.TextColor3 = P.text
-displayNameLabel.Font = Enum.Font.GothamBlack
-displayNameLabel.TextSize = 13
-displayNameLabel.TextXAlignment = Enum.TextXAlignment.Left
-displayNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-displayNameLabel.ZIndex = 14
-displayNameLabel.Parent = header
-gradient(displayNameLabel, {
-    ColorSequenceKeypoint.new(0, P.neonCyan),
-    ColorSequenceKeypoint.new(0.5, P.text),
-    ColorSequenceKeypoint.new(1, P.neonPink),
-}, 0)
+    local displayNameLabel = Instance.new("TextLabel")
+    displayNameLabel.Name = "DisplayName"
+    displayNameLabel.Size = UDim2.new(1, -190, 0, 16)
+    displayNameLabel.Position = UDim2.fromOffset(68, 12)
+    displayNameLabel.BackgroundTransparency = 1
+    displayNameLabel.Text = LocalPlayer.DisplayName or LocalPlayer.Name
+    displayNameLabel.TextColor3 = P.text
+    displayNameLabel.Font = Enum.Font.GothamBlack
+    displayNameLabel.TextSize = 13
+    displayNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    displayNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    displayNameLabel.ZIndex = 14
+    displayNameLabel.Parent = header
+    gradient(displayNameLabel, {
+        ColorSequenceKeypoint.new(0, P.neonCyan),
+        ColorSequenceKeypoint.new(0.5, P.text),
+        ColorSequenceKeypoint.new(1, P.neonPink),
+    }, 0)
 
-local usernameLabel = Instance.new("TextLabel")
-usernameLabel.Name = "Username"
-usernameLabel.Size = UDim2.new(1, -190, 0, 12)
-usernameLabel.Position = UDim2.fromOffset(68, 28)
-usernameLabel.BackgroundTransparency = 1
-usernameLabel.Text = "@" .. (LocalPlayer.Name or "user")
-usernameLabel.TextColor3 = P.neonCyan
-usernameLabel.Font = Enum.Font.GothamMedium
-usernameLabel.TextSize = 9
-usernameLabel.TextXAlignment = Enum.TextXAlignment.Left
-usernameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-usernameLabel.ZIndex = 14
-usernameLabel.Parent = header
+    local usernameLabel = Instance.new("TextLabel")
+    usernameLabel.Name = "Username"
+    usernameLabel.Size = UDim2.new(1, -190, 0, 12)
+    usernameLabel.Position = UDim2.fromOffset(68, 28)
+    usernameLabel.BackgroundTransparency = 1
+    usernameLabel.Text = "@" .. (LocalPlayer.Name or "user")
+    usernameLabel.TextColor3 = P.neonCyan
+    usernameLabel.Font = Enum.Font.GothamMedium
+    usernameLabel.TextSize = 9
+    usernameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    usernameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    usernameLabel.ZIndex = 14
+    usernameLabel.Parent = header
 
-local idLabel = Instance.new("TextLabel")
-idLabel.Name = "IdLabel"
-idLabel.Size = UDim2.new(1, -190, 0, 12)
-idLabel.Position = UDim2.fromOffset(68, 42)
-idLabel.BackgroundTransparency = 1
-idLabel.Text = "ID " .. tostring(LocalPlayer.UserId)
-idLabel.TextColor3 = P.faint
-idLabel.Font = Enum.Font.Code
-idLabel.TextSize = 8
-idLabel.TextXAlignment = Enum.TextXAlignment.Left
-idLabel.ZIndex = 14
-idLabel.Parent = header
+    local idLabel = Instance.new("TextLabel")
+    idLabel.Name = "IdLabel"
+    idLabel.Size = UDim2.new(1, -190, 0, 12)
+    idLabel.Position = UDim2.fromOffset(68, 42)
+    idLabel.BackgroundTransparency = 1
+    idLabel.Text = "ID " .. tostring(LocalPlayer.UserId)
+    idLabel.TextColor3 = P.faint
+    idLabel.Font = Enum.Font.Code
+    idLabel.TextSize = 8
+    idLabel.TextXAlignment = Enum.TextXAlignment.Left
+    idLabel.ZIndex = 14
+    idLabel.Parent = header
 
--- brand block
-local brandWrap = Instance.new("Frame")
-brandWrap.Size = UDim2.fromOffset(110, 50)
-brandWrap.Position = UDim2.new(1, -120, 0, 8)
-brandWrap.BackgroundTransparency = 1
-brandWrap.ZIndex = 13
-brandWrap.Parent = header
+    -- brand block
+    local brandWrap = Instance.new("Frame")
+    brandWrap.Size = UDim2.fromOffset(110, 50)
+    brandWrap.Position = UDim2.new(1, -120, 0, 8)
+    brandWrap.BackgroundTransparency = 1
+    brandWrap.ZIndex = 13
+    brandWrap.Parent = header
 
-local brandTitle = Instance.new("TextLabel")
-brandTitle.Size = UDim2.new(1, 0, 0, 20)
-brandTitle.BackgroundTransparency = 1
-brandTitle.Text = "WANG"
-brandTitle.TextColor3 = P.neonPink
-brandTitle.Font = Enum.Font.GothamBlack
-brandTitle.TextSize = 20
-brandTitle.TextXAlignment = Enum.TextXAlignment.Right
-brandTitle.ZIndex = 14
-brandTitle.Parent = brandWrap
-gradient(brandTitle, {
-    ColorSequenceKeypoint.new(0, P.neonPink),
-    ColorSequenceKeypoint.new(0.5, P.neonPurple),
-    ColorSequenceKeypoint.new(1, P.neonCyan),
-}, 0)
+    local brandTitle = Instance.new("TextLabel")
+    brandTitle.Size = UDim2.new(1, 0, 0, 20)
+    brandTitle.BackgroundTransparency = 1
+    brandTitle.Text = "WANG"
+    brandTitle.TextColor3 = P.neonPink
+    brandTitle.Font = Enum.Font.GothamBlack
+    brandTitle.TextSize = 20
+    brandTitle.TextXAlignment = Enum.TextXAlignment.Right
+    brandTitle.ZIndex = 14
+    brandTitle.Parent = brandWrap
+    gradient(brandTitle, {
+        ColorSequenceKeypoint.new(0, P.neonPink),
+        ColorSequenceKeypoint.new(0.5, P.neonPurple),
+        ColorSequenceKeypoint.new(1, P.neonCyan),
+    }, 0)
 
-local brandSub = Instance.new("TextLabel")
-brandSub.Size = UDim2.new(1, 0, 0, 11)
-brandSub.Position = UDim2.fromOffset(0, 20)
-brandSub.BackgroundTransparency = 1
-brandSub.Text = "RBXL · RBXM · RBXLX"
-brandSub.TextColor3 = P.subtext
-brandSub.Font = Enum.Font.GothamBold
-brandSub.TextSize = 7
-brandSub.TextXAlignment = Enum.TextXAlignment.Right
-brandSub.ZIndex = 14
-brandSub.Parent = brandWrap
+    local brandSub = Instance.new("TextLabel")
+    brandSub.Size = UDim2.new(1, 0, 0, 11)
+    brandSub.Position = UDim2.fromOffset(0, 20)
+    brandSub.BackgroundTransparency = 1
+    brandSub.Text = "RBXL · RBXM · RBXLX"
+    brandSub.TextColor3 = P.subtext
+    brandSub.Font = Enum.Font.GothamBold
+    brandSub.TextSize = 7
+    brandSub.TextXAlignment = Enum.TextXAlignment.Right
+    brandSub.ZIndex = 14
+    brandSub.Parent = brandWrap
 
-local versionTag = Instance.new("TextLabel")
-versionTag.Size = UDim2.new(1, 0, 0, 11)
-versionTag.Position = UDim2.fromOffset(0, 32)
-versionTag.BackgroundTransparency = 1
-versionTag.Text = "V10.3 PINK 3D"
-versionTag.TextColor3 = P.faint
-versionTag.Font = Enum.Font.Code
-versionTag.TextSize = 7
-versionTag.TextXAlignment = Enum.TextXAlignment.Right
-versionTag.ZIndex = 14
-versionTag.Parent = brandWrap
+    local versionTag = Instance.new("TextLabel")
+    versionTag.Size = UDim2.new(1, 0, 0, 11)
+    versionTag.Position = UDim2.fromOffset(0, 32)
+    versionTag.BackgroundTransparency = 1
+    versionTag.Text = "V10.3 PINK 3D"
+    versionTag.TextColor3 = P.faint
+    versionTag.Font = Enum.Font.Code
+    versionTag.TextSize = 7
+    versionTag.TextXAlignment = Enum.TextXAlignment.Right
+    versionTag.ZIndex = 14
+    versionTag.Parent = brandWrap
+end
 
 -- window controls
 local minBtn = Instance.new("TextButton")
@@ -2618,32 +2612,34 @@ stroke(searchWrap, P.line, 1, 0.4)
 bevelStroke(searchWrap, false, 1.2, 0.35)
 innerShadow(searchWrap, true, 0.5, 0.4)
 
--- drawn magnifying glass
-local searchIcon = Instance.new("Frame")
-searchIcon.Size = UDim2.fromOffset(14, 14)
-searchIcon.Position = UDim2.fromOffset(11, 10)
-searchIcon.BackgroundTransparency = 1
-searchIcon.ZIndex = 13
-searchIcon.Parent = searchWrap
+do
+    -- drawn magnifying glass
+    local searchIcon = Instance.new("Frame")
+    searchIcon.Size = UDim2.fromOffset(14, 14)
+    searchIcon.Position = UDim2.fromOffset(11, 10)
+    searchIcon.BackgroundTransparency = 1
+    searchIcon.ZIndex = 13
+    searchIcon.Parent = searchWrap
 
-local searchIconCircle = Instance.new("Frame")
-searchIconCircle.Size = UDim2.fromOffset(11, 11)
-searchIconCircle.BackgroundTransparency = 1
-searchIconCircle.ZIndex = 13
-searchIconCircle.Parent = searchIcon
-round(searchIconCircle, 6)
-local sicStroke = Instance.new("UIStroke")
-sicStroke.Color = P.neonCyan; sicStroke.Thickness = 1.6; sicStroke.Transparency = 0
-sicStroke.Parent = searchIconCircle
+    local searchIconCircle = Instance.new("Frame")
+    searchIconCircle.Size = UDim2.fromOffset(11, 11)
+    searchIconCircle.BackgroundTransparency = 1
+    searchIconCircle.ZIndex = 13
+    searchIconCircle.Parent = searchIcon
+    round(searchIconCircle, 6)
+    local sicStroke = Instance.new("UIStroke")
+    sicStroke.Color = P.neonCyan; sicStroke.Thickness = 1.6; sicStroke.Transparency = 0
+    sicStroke.Parent = searchIconCircle
 
-local searchIconHandle = Instance.new("Frame")
-searchIconHandle.Size = UDim2.fromOffset(6, 1.5)
-searchIconHandle.Position = UDim2.fromOffset(8, 9)
-searchIconHandle.Rotation = 45
-searchIconHandle.BackgroundColor3 = P.neonCyan
-searchIconHandle.BorderSizePixel = 0
-searchIconHandle.ZIndex = 13
-searchIconHandle.Parent = searchIcon
+    local searchIconHandle = Instance.new("Frame")
+    searchIconHandle.Size = UDim2.fromOffset(6, 1.5)
+    searchIconHandle.Position = UDim2.fromOffset(8, 9)
+    searchIconHandle.Rotation = 45
+    searchIconHandle.BackgroundColor3 = P.neonCyan
+    searchIconHandle.BorderSizePixel = 0
+    searchIconHandle.ZIndex = 13
+    searchIconHandle.Parent = searchIcon
+end
 
 local searchBox = Instance.new("TextBox")
 searchBox.Name = "Search"
@@ -2788,8 +2784,8 @@ importProgressPct.Parent = progressWrap
 -- ============================================================
 local list = Instance.new("ScrollingFrame")
 list.Name = "FileList"
-list.Size = UDim2.new(1, -20, 1, -226)
-list.Position = UDim2.fromOffset(10, 172)
+list.Size = UDim2.new(1, -20, 1, -260)
+list.Position = UDim2.fromOffset(10, 206)
 list.BackgroundColor3 = P.panel
 list.BackgroundTransparency = 0.35
 list.BorderSizePixel = 0
@@ -2899,6 +2895,9 @@ local fileCount = 0
 local importedCount = 0
 local mainVisible = true
 local expandedPosition = main.Position
+local activeTab = "RBXL"
+local scanBusy = false
+local refreshTabs -- diisi di bagian TABS
 
 local function setStatus(text, color)
     statusText.Text = tostring(text)
@@ -3018,19 +3017,96 @@ end
 
 local function filterCards()
     local q = searchBox.Text:lower():gsub("^%s+", ""):gsub("%s+$", "")
+    local visibleCount = 0
     for _, item in ipairs(allCards) do
         local match = q == "" or item.info.name:lower():find(q, 1, true) or item.info.path:lower():find(q, 1, true)
-        item.card.Visible = match
+        local show = (item.info.ftype == activeTab) and (match ~= nil and match ~= false)
+        item.card.Visible = show
+        if show then visibleCount += 1 end
     end
-    empty.Visible = (#allCards == 0)
+    if refreshTabs then refreshTabs() end
+    if visibleCount > 0 then
+        empty.Visible = false
+    else
+        empty.Visible = true
+        if scanBusy then
+            empty.Text = "SCANNING..."
+        elseif #allCards > 0 then
+            if q ~= "" then
+                empty.Text = "NO MATCH IN " .. activeTab
+            else
+                empty.Text = "NO " .. activeTab .. " FILES"
+            end
+        end
+    end
 end
+
+-- ============================================================
+-- TABS (RBXL / RBXM)
+-- ============================================================
+local tabBar = Instance.new("Frame")
+tabBar.Name = "TabBar"
+tabBar.Size = UDim2.new(1, -20, 0, 28)
+tabBar.Position = UDim2.fromOffset(10, 172)
+tabBar.BackgroundTransparency = 1
+tabBar.ZIndex = 11
+tabBar.Parent = main
+
+local tabs = {}
+local function makeTab(key, xScale, xOff)
+    local b = Instance.new("TextButton")
+    b.Name = "Tab_" .. key
+    b.Size = UDim2.new(0.5, -3, 1, 0)
+    b.Position = UDim2.new(xScale, xOff, 0, 0)
+    b.BackgroundColor3 = P.bg3
+    b.Text = key
+    b.TextColor3 = P.subtext
+    b.Font = Enum.Font.GothamBlack
+    b.TextSize = 9
+    b.AutoButtonColor = false
+    b.ZIndex = 12
+    b.Parent = tabBar
+    round(b, 9)
+    local st = bevelStroke(b, true, 1.2, 0.3)
+    shade(b, Color3.fromRGB(255, 255, 255), Color3.fromRGB(238, 238, 238), Color3.fromRGB(150, 150, 150))
+    gloss(b, 0.5, 0.16)
+    tabs[key] = { btn = b, stroke = st }
+    return b
+end
+makeTab("RBXL", 0, 0)
+makeTab("RBXM", 0.5, 3)
+
+refreshTabs = function()
+    local counts = { RBXL = 0, RBXM = 0 }
+    for _, item in ipairs(allCards) do
+        local k = item.info.ftype == "RBXM" and "RBXM" or "RBXL"
+        counts[k] += 1
+    end
+    for key, t in pairs(tabs) do
+        local on = (key == activeTab)
+        t.btn.Text = ("%s  ·  %d"):format(key, counts[key])
+        TweenService:Create(t.btn, TweenInfo.new(0.15), {
+            BackgroundColor3 = on and P.neonPurple or P.bg3,
+            TextColor3 = on and P.text or P.subtext,
+        }):Play()
+        t.stroke.Transparency = on and 0 or 0.55
+    end
+    return counts
+end
+
+local function setTab(key)
+    if key == activeTab then return end
+    activeTab = key
+    filterCards()
+end
+tabs.RBXL.btn.MouseButton1Click:Connect(function() setTab("RBXL") end)
+tabs.RBXM.btn.MouseButton1Click:Connect(function() setTab("RBXM") end)
+refreshTabs()
 
 -- ============================================================
 -- FILE CARD
 -- ============================================================
 local function makeCard(info)
-    empty.Visible = false
-
     local card = Instance.new("Frame")
     card.Size = UDim2.new(1, -4, 0, 44)
     card.BackgroundColor3 = WHITE
@@ -3191,13 +3267,14 @@ local function makeCard(info)
     end)
 
     table.insert(allCards, {info = info, card = card})
+    card.Visible = (info.ftype == activeTab)
+    if card.Visible then empty.Visible = false end
+    if refreshTabs then refreshTabs() end
 end
 
 -- ============================================================
 -- SCAN
 -- ============================================================
-local scanBusy = false
-
 local function scanNow()
     -- cegah scan ganda (klik berulang / auto-scan bersamaan)
     if scanBusy then return end
@@ -3212,6 +3289,7 @@ local function scanNow()
     updateCount()
     empty.Visible = true
     empty.Text = "SCANNING..."
+    filterCards()
 
     local function finish()
         scanBtn.Text = "SCAN"
@@ -3261,6 +3339,13 @@ local function scanNow()
             setStatus(("SCAN COMPLETE • RBXL %d • RBXM %d"):format(rbxlCount, rbxmCount), P.ok)
         end
         finish()
+        -- otomatis pindah ke tab yang ada isinya
+        local nl, nm = 0, 0
+        for _, info in ipairs(unique) do
+            if info.ftype == "RBXM" then nm += 1 else nl += 1 end
+        end
+        if activeTab == "RBXL" and nl == 0 and nm > 0 then activeTab = "RBXM"
+        elseif activeTab == "RBXM" and nm == 0 and nl > 0 then activeTab = "RBXL" end
         filterCards()
     end)
 end
@@ -3272,154 +3357,154 @@ scanBtn.MouseButton1Click:Connect(scanNow)
 -- RESIZE LOGIC
 -- ============================================================
 do
-    local resizing = false
-    local resizeStart
-    local resizeStartSize
-    local resizeStartPos
+        local resizing = false
+        local resizeStart
+        local resizeStartSize
+        local resizeStartPos
 
-    resizeGrip.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-            resizing = true
-            resizeStart = input.Position
-            resizeStartSize = main.Size
-            resizeStartPos = main.Position
-        end
-    end)
+        resizeGrip.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                resizing = true
+                resizeStart = input.Position
+                resizeStartSize = main.Size
+                resizeStartPos = main.Position
+            end
+        end)
 
-    resizeGrip.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-            resizing = false
-        end
-    end)
+        resizeGrip.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                resizing = false
+            end
+        end)
 
-    UserInputService.InputChanged:Connect(function(input)
-        if not resizing then return end
-        if input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch then
-            local delta = input.Position - resizeStart
-            local newW = math.clamp(resizeStartSize.X.Offset + delta.X, MIN_W, MAX_W)
-            local newH = math.clamp(resizeStartSize.Y.Offset + delta.Y, MIN_H, MAX_H)
+        UserInputService.InputChanged:Connect(function(input)
+            if not resizing then return end
+            if input.UserInputType == Enum.UserInputType.MouseMovement
+                or input.UserInputType == Enum.UserInputType.Touch then
+                local delta = input.Position - resizeStart
+                local newW = math.clamp(resizeStartSize.X.Offset + delta.X, MIN_W, MAX_W)
+                local newH = math.clamp(resizeStartSize.Y.Offset + delta.Y, MIN_H, MAX_H)
 
-            main.Size = UDim2.fromOffset(newW, newH)
-            main.Position = resizeStartPos
-            expandedPosition = main.Position
+                main.Size = UDim2.fromOffset(newW, newH)
+                main.Position = resizeStartPos
+                expandedPosition = main.Position
 
-            outerGlow.Size = UDim2.fromOffset(newW + 18, newH + 18)
-            outerGlow.Position = UDim2.new(
-                main.Position.X.Scale, main.Position.X.Offset - 9,
-                main.Position.Y.Scale, main.Position.Y.Offset - 9
-            )
-        end
-    end)
+                outerGlow.Size = UDim2.fromOffset(newW + 18, newH + 18)
+                outerGlow.Position = UDim2.new(
+                    main.Position.X.Scale, main.Position.X.Offset - 9,
+                    main.Position.Y.Scale, main.Position.Y.Offset - 9
+                )
+            end
+        end)
 end
 
 -- ============================================================
 -- DRAG LOGIC (header)
 -- ============================================================
 do
-    local dragging = false
-    local dragInput
-    local dragStart
-    local startPos
-    local dragStarted = false
+        local dragging = false
+        local dragInput
+        local dragStart
+        local startPos
+        local dragStarted = false
 
-    local function headerInputStart(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-            -- ignore if clicking buttons
-            local mx = input.Position.X
-            local my = input.Position.Y
-            local closePos = closeBtn.AbsolutePosition
-            local closeSize = closeBtn.AbsoluteSize
-            if mx >= closePos.X and mx <= closePos.X + closeSize.X
-                and my >= closePos.Y and my <= closePos.Y + closeSize.Y then
-                return
-            end
-            local minPos = minBtn.AbsolutePosition
-            local minSize = minBtn.AbsoluteSize
-            if mx >= minPos.X and mx <= minPos.X + minSize.X
-                and my >= minPos.Y and my <= minPos.Y + minSize.Y then
-                return
-            end
-            dragging = true
-            dragStart = input.Position
-            startPos = main.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
+        local function headerInputStart(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                -- ignore if clicking buttons
+                local mx = input.Position.X
+                local my = input.Position.Y
+                local closePos = closeBtn.AbsolutePosition
+                local closeSize = closeBtn.AbsoluteSize
+                if mx >= closePos.X and mx <= closePos.X + closeSize.X
+                    and my >= closePos.Y and my <= closePos.Y + closeSize.Y then
+                    return
                 end
-            end)
+                local minPos = minBtn.AbsolutePosition
+                local minSize = minBtn.AbsoluteSize
+                if mx >= minPos.X and mx <= minPos.X + minSize.X
+                    and my >= minPos.Y and my <= minPos.Y + minSize.Y then
+                    return
+                end
+                dragging = true
+                dragStart = input.Position
+                startPos = main.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
+                end)
+            end
         end
-    end
 
-    header.InputBegan:Connect(headerInputStart)
+        header.InputBegan:Connect(headerInputStart)
 
-    header.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
-    end)
+        header.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement
+                or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
+        end)
 
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input == dragInput and mainVisible then
-            local delta = input.Position - dragStart
-            main.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
-            expandedPosition = main.Position
-            outerGlow.Position = UDim2.new(
-                main.Position.X.Scale, main.Position.X.Offset - 9,
-                main.Position.Y.Scale, main.Position.Y.Offset - 9
-            )
-        end
-    end)
+        UserInputService.InputChanged:Connect(function(input)
+            if dragging and input == dragInput and mainVisible then
+                local delta = input.Position - dragStart
+                main.Position = UDim2.new(
+                    startPos.X.Scale, startPos.X.Offset + delta.X,
+                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                )
+                expandedPosition = main.Position
+                outerGlow.Position = UDim2.new(
+                    main.Position.X.Scale, main.Position.X.Offset - 9,
+                    main.Position.Y.Scale, main.Position.Y.Offset - 9
+                )
+            end
+        end)
 end
 
 -- ============================================================
 -- LAUNCHER DRAG / TAP
 -- ============================================================
 do
-    local launcherDragging = false
-    local launcherMoved = false
-    local launcherDragStart
-    local launcherStartPos
+        local launcherDragging = false
+        local launcherMoved = false
+        local launcherDragStart
+        local launcherStartPos
 
-    launcher.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-            launcherDragging = true
-            launcherMoved = false
-            launcherDragStart = input.Position
-            launcherStartPos = launcher.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    launcherDragging = false
-                    if not launcherMoved then setMainVisible(not mainVisible) end
-                end
-            end)
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if not launcherDragging then return end
-        if input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch then
-            local delta = input.Position - launcherDragStart
-            if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then launcherMoved = true end
-            if launcherMoved then
-                local np = UDim2.new(
-                    launcherStartPos.X.Scale, launcherStartPos.X.Offset + delta.X,
-                    launcherStartPos.Y.Scale, launcherStartPos.Y.Offset + delta.Y
-                )
-                launcher.Position = np
-                launcherGlow.Position = UDim2.new(np.X.Scale, np.X.Offset - 3, np.Y.Scale, np.Y.Offset - 3)
+        launcher.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                launcherDragging = true
+                launcherMoved = false
+                launcherDragStart = input.Position
+                launcherStartPos = launcher.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        launcherDragging = false
+                        if not launcherMoved then setMainVisible(not mainVisible) end
+                    end
+                end)
             end
-        end
-    end)
+        end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if not launcherDragging then return end
+            if input.UserInputType == Enum.UserInputType.MouseMovement
+                or input.UserInputType == Enum.UserInputType.Touch then
+                local delta = input.Position - launcherDragStart
+                if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then launcherMoved = true end
+                if launcherMoved then
+                    local np = UDim2.new(
+                        launcherStartPos.X.Scale, launcherStartPos.X.Offset + delta.X,
+                        launcherStartPos.Y.Scale, launcherStartPos.Y.Offset + delta.Y
+                    )
+                    launcher.Position = np
+                    launcherGlow.Position = UDim2.new(np.X.Scale, np.X.Offset - 3, np.Y.Scale, np.Y.Offset - 3)
+                end
+            end
+        end)
 end
 
 minBtn.MouseButton1Click:Connect(function() setMainVisible(false) end)
