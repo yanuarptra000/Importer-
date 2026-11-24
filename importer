@@ -3572,4 +3572,1070 @@ task.spawn(function()
     end)
 end)
 
+--[[
+================================================================================
+  WANG EXPORT ADDON  —  V11 PINK 3D  (tab EXPORT di dalam panel importer)
+  CARA PAKAI: tempel SELURUH isi file ini di PALING BAWAH script importer
+  (setelah baris print("[WANG] RBXL CORE V2 STABILITY loaded")), lalu jalankan
+  seperti biasa. Satu script, satu panel: tab RBXL · RBXM · EXPORT.
+================================================================================
+]]
+
+xpcall(function()
+
+if typeof(main) ~= "Instance" or typeof(tabBar) ~= "Instance" or typeof(list) ~= "Instance"
+    or type(tabs) ~= "table" or type(refreshTabs) ~= "function" or type(scanNow) ~= "function" then
+    warn("[WANG EXPORT] Addon harus ditempel di BAWAH script importer (paling akhir), bukan dijalankan sendiri.")
+    return
+end
+
+local EXPORT_FOLDER = "WANG_Export"
+
+-- ============================================================
+-- UTIL
+-- ============================================================
+local _lastYield = os.clock()
+local function softYield(budget)
+    if os.clock() - _lastYield > (budget or 0.008) then
+        task.wait()
+        _lastYield = os.clock()
+    end
+end
+
+local function xmlEsc(s)
+    s = tostring(s)
+    s = s:gsub("[\0-\8\11\12\14-\31]", "")
+    s = s:gsub("&", "&amp;")
+    s = s:gsub("<", "&lt;")
+    s = s:gsub(">", "&gt;")
+    return s
+end
+
+local function cdata(s)
+    s = tostring(s)
+    s = s:gsub("[\0-\8\11\12\14-\31]", "")
+    s = s:gsub("]]>", "]]]]><![CDATA[>")
+    return "<![CDATA[" .. s .. "]]>"
+end
+
+local function num(n)
+    if n ~= n then return "NAN" end
+    if n == math.huge then return "INF" end
+    if n == -math.huge then return "-INF" end
+    return string.format("%.9g", n)
+end
+
+-- ============================================================
+-- WRITER (append bertahap kalau appendfile tersedia, hemat RAM di HP)
+-- ============================================================
+local Writer = {}
+Writer.__index = Writer
+function Writer.new(path)
+    local self = setmetatable({}, Writer)
+    self.path = path
+    self.parts = {}
+    self.n = 0
+    self.bytes = 0
+    self.canAppend = type(appendfile) == "function"
+    if self.canAppend then writefile(path, "") end
+    return self
+end
+function Writer:add(s)
+    self.n += 1
+    self.parts[self.n] = s
+    self.bytes += #s
+    if self.canAppend and self.n >= 3000 then self:flush() end
+end
+function Writer:flush()
+    if self.n == 0 then return end
+    local chunk = table.concat(self.parts, "", 1, self.n)
+    self.parts = {}
+    self.n = 0
+    if self.canAppend then appendfile(self.path, chunk)
+    else self.parts[1] = chunk; self.n = 1 end
+end
+function Writer:close()
+    if self.canAppend then
+        self:flush()
+    else
+        writefile(self.path, table.concat(self.parts, "", 1, self.n))
+    end
+end
+
+-- ============================================================
+-- SERIALIZER PER TIPE
+-- ============================================================
+local function refOf(inst, ctx)
+    local r = ctx.ref[inst]
+    if not r then
+        ctx.nextRef += 1
+        r = "RBX" .. string.format("%X", ctx.nextRef)
+        ctx.ref[inst] = r
+    end
+    return r
+end
+
+local function ser(tp, name, v, ctx)
+    local n = xmlEsc(name)
+    local tv = typeof(v)
+    if tp == "string" then
+        if type(v) ~= "string" then return nil end
+        return ('<string name="%s">%s</string>'):format(n, xmlEsc(v))
+    elseif tp == "bool" then
+        if type(v) ~= "boolean" then return nil end
+        return ('<bool name="%s">%s</bool>'):format(n, tostring(v))
+    elseif tp == "int" then
+        if type(v) ~= "number" then return nil end
+        return ('<int name="%s">%d</int>'):format(n, math.floor(v))
+    elseif tp == "int64" then
+        if type(v) ~= "number" then return nil end
+        return ('<int64 name="%s">%.0f</int64>'):format(n, math.floor(v))
+    elseif tp == "float" then
+        if type(v) ~= "number" then return nil end
+        return ('<float name="%s">%s</float>'):format(n, num(v))
+    elseif tp == "double" then
+        if type(v) ~= "number" then return nil end
+        return ('<double name="%s">%s</double>'):format(n, num(v))
+    elseif tp == "token" then
+        if tv == "EnumItem" then v = v.Value end
+        if type(v) ~= "number" then return nil end
+        return ('<token name="%s">%d</token>'):format(n, v)
+    elseif tp == "Vector3" then
+        if tv ~= "Vector3" then return nil end
+        return ('<Vector3 name="%s"><X>%s</X><Y>%s</Y><Z>%s</Z></Vector3>'):format(n, num(v.X), num(v.Y), num(v.Z))
+    elseif tp == "Vector2" then
+        if tv ~= "Vector2" then return nil end
+        return ('<Vector2 name="%s"><X>%s</X><Y>%s</Y></Vector2>'):format(n, num(v.X), num(v.Y))
+    elseif tp == "CFrame" then
+        if tv ~= "CFrame" then return nil end
+        local c = {v:GetComponents()}
+        return ('<CoordinateFrame name="%s"><X>%s</X><Y>%s</Y><Z>%s</Z><R00>%s</R00><R01>%s</R01><R02>%s</R02><R10>%s</R10><R11>%s</R11><R12>%s</R12><R20>%s</R20><R21>%s</R21><R22>%s</R22></CoordinateFrame>')
+            :format(n, num(c[1]), num(c[2]), num(c[3]), num(c[4]), num(c[5]), num(c[6]), num(c[7]), num(c[8]), num(c[9]), num(c[10]), num(c[11]), num(c[12]))
+    elseif tp == "Color3" then
+        if tv ~= "Color3" then return nil end
+        return ('<Color3 name="%s"><R>%s</R><G>%s</G><B>%s</B></Color3>'):format(n, num(v.R), num(v.G), num(v.B))
+    elseif tp == "Color3u8" then
+        if tv ~= "Color3" then return nil end
+        local r = math.floor(v.R * 255 + 0.5)
+        local g = math.floor(v.G * 255 + 0.5)
+        local b = math.floor(v.B * 255 + 0.5)
+        return ('<Color3uint8 name="Color3uint8">%.0f</Color3uint8>'):format(4278190080 + r * 65536 + g * 256 + b)
+    elseif tp == "UDim" then
+        if tv ~= "UDim" then return nil end
+        return ('<UDim name="%s"><S>%s</S><O>%d</O></UDim>'):format(n, num(v.Scale), v.Offset)
+    elseif tp == "UDim2" then
+        if tv ~= "UDim2" then return nil end
+        return ('<UDim2 name="%s"><XS>%s</XS><XO>%d</XO><YS>%s</YS><YO>%d</YO></UDim2>')
+            :format(n, num(v.X.Scale), v.X.Offset, num(v.Y.Scale), v.Y.Offset)
+    elseif tp == "Rect" then
+        if tv ~= "Rect" then return nil end
+        return ('<Rect2D name="%s"><min><X>%s</X><Y>%s</Y></min><max><X>%s</X><Y>%s</Y></max></Rect2D>')
+            :format(n, num(v.Min.X), num(v.Min.Y), num(v.Max.X), num(v.Max.Y))
+    elseif tp == "BrickColor" then
+        if tv ~= "BrickColor" then return nil end
+        return ('<int name="%s">%d</int>'):format(n, v.Number)
+    elseif tp == "Content" then
+        local url = v
+        if tv == "Content" then
+            local ok, u = pcall(function() return v.Uri end)
+            url = ok and u or ""
+        end
+        if type(url) ~= "string" then return nil end
+        if url == "" then return ('<Content name="%s"><null></null></Content>'):format(n) end
+        return ('<Content name="%s"><url>%s</url></Content>'):format(n, xmlEsc(url))
+    elseif tp == "NumberRange" then
+        if tv ~= "NumberRange" then return nil end
+        return ('<NumberRange name="%s">%s %s </NumberRange>'):format(n, num(v.Min), num(v.Max))
+    elseif tp == "NumberSequence" then
+        if tv ~= "NumberSequence" then return nil end
+        local t = {}
+        for _, k in ipairs(v.Keypoints) do t[#t + 1] = num(k.Time) .. " " .. num(k.Value) .. " " .. num(k.Envelope) .. " " end
+        return ('<NumberSequence name="%s">%s</NumberSequence>'):format(n, table.concat(t))
+    elseif tp == "ColorSequence" then
+        if tv ~= "ColorSequence" then return nil end
+        local t = {}
+        for _, k in ipairs(v.Keypoints) do
+            t[#t + 1] = num(k.Time) .. " " .. num(k.Value.R) .. " " .. num(k.Value.G) .. " " .. num(k.Value.B) .. " 0 "
+        end
+        return ('<ColorSequence name="%s">%s</ColorSequence>'):format(n, table.concat(t))
+    elseif tp == "Font" then
+        if tv ~= "Font" then return nil end
+        return ('<Font name="%s"><Family><url>%s</url></Family><Weight>%d</Weight><Style>%s</Style></Font>')
+            :format(n, xmlEsc(v.Family), v.Weight.Value, v.Style.Name)
+    elseif tp == "Phys" then
+        if tv ~= "PhysicalProperties" then return nil end
+        return ('<PhysicalProperties name="%s"><CustomPhysics>true</CustomPhysics><Density>%s</Density><Friction>%s</Friction><Elasticity>%s</Elasticity><FrictionWeight>%s</FrictionWeight><ElasticityWeight>%s</ElasticityWeight></PhysicalProperties>')
+            :format(n, num(v.Density), num(v.Friction), num(v.Elasticity), num(v.FrictionWeight), num(v.ElasticityWeight))
+    elseif tp == "Ref" then
+        if tv ~= "Instance" then return nil end
+        return ('<Ref name="%s">%s</Ref>'):format(n, refOf(v, ctx))
+    end
+    return nil
+end
+
+-- ============================================================
+-- DAFTAR PROPERTI (nama:tipe). Properti yang tidak ada/tidak terbaca dilewati otomatis.
+-- ============================================================
+local TEXT = "Text:string TextColor3:Color3 TextSize:int TextScaled:bool TextWrapped:bool TextXAlignment:token TextYAlignment:token TextTransparency:float TextStrokeColor3:Color3 TextStrokeTransparency:float RichText:bool TextTruncate:token LineHeight:float FontFace:Font"
+local IMG = "Image:Content ImageColor3:Color3 ImageTransparency:float ScaleType:token SliceCenter:Rect SliceScale:float TileSize:UDim2 ResampleMode:token"
+local LIGHT = "Brightness:float Color:Color3 Enabled:bool Shadows:bool"
+
+local GROUPS = {
+    {"Workspace", "Gravity:float"},
+    {"Lighting", "Ambient:Color3 Brightness:float ClockTime:float ColorShift_Bottom:Color3 ColorShift_Top:Color3 EnvironmentDiffuseScale:float EnvironmentSpecularScale:float ExposureCompensation:float FogColor:Color3 FogEnd:float FogStart:float GeographicLatitude:float GlobalShadows:bool OutdoorAmbient:Color3 ShadowSoftness:float"},
+    {"StarterPlayer", "CharacterWalkSpeed:float CharacterJumpPower:float CharacterJumpHeight:float CameraMaxZoomDistance:float CameraMinZoomDistance:float EnableMouseLockOption:bool AutoJumpEnabled:bool LoadCharacterAppearance:bool"},
+    {"Sky", "SkyboxBk:Content SkyboxDn:Content SkyboxFt:Content SkyboxLf:Content SkyboxRt:Content SkyboxUp:Content CelestialBodiesShown:bool StarCount:int SunAngularSize:float MoonAngularSize:float SunTextureId:Content MoonTextureId:Content"},
+    {"Atmosphere", "Density:float Offset:float Color:Color3 Decay:Color3 Glare:float Haze:float"},
+    {"PostEffect", "Enabled:bool"},
+    {"BloomEffect", "Intensity:float Size:float Threshold:float"},
+    {"ColorCorrectionEffect", "Brightness:float Contrast:float Saturation:float TintColor:Color3"},
+    {"BlurEffect", "Size:float"},
+    {"SunRaysEffect", "Intensity:float Spread:float"},
+    {"Model", "PrimaryPart:Ref ModelStreamingMode:token"},
+    {"BasePart", "Anchored:bool CanCollide:bool CanTouch:bool CanQuery:bool CastShadow:bool Massless:bool Locked:bool Transparency:float Reflectance:float Material:token CFrame:CFrame Size:Vector3 Color:Color3u8 CollisionGroup:string CustomPhysicalProperties:Phys RootPriority:int TopSurface:token BottomSurface:token LeftSurface:token RightSurface:token FrontSurface:token BackSurface:token"},
+    {"Part", "Shape:token"},
+    {"MeshPart", "MeshId:Content TextureID:Content RenderFidelity:token CollisionFidelity:token DoubleSided:bool"},
+    {"SpawnLocation", "Duration:int Neutral:bool TeamColor:BrickColor AllowTeamChangeOnTouch:bool Enabled:bool"},
+    {"SpecialMesh", "MeshId:Content TextureId:Content MeshType:token Scale:Vector3 Offset:Vector3 VertexColor:Vector3"},
+    {"Decal", "Texture:Content Color3:Color3 Transparency:float Face:token ZIndex:int"},
+    {"Texture", "StudsPerTileU:float StudsPerTileV:float OffsetStudsU:float OffsetStudsV:float"},
+    {"SurfaceAppearance", "ColorMap:Content MetalnessMap:Content NormalMap:Content RoughnessMap:Content AlphaMode:token"},
+    {"Sound", "SoundId:Content Volume:float PlaybackSpeed:float Looped:bool RollOffMode:token RollOffMinDistance:float RollOffMaxDistance:float"},
+    {"Light", LIGHT},
+    {"PointLight", "Range:float"},
+    {"SpotLight", "Range:float Angle:float Face:token"},
+    {"SurfaceLight", "Range:float Angle:float Face:token"},
+    {"Attachment", "CFrame:CFrame Visible:bool"},
+    {"WeldConstraint", "Part0:Ref Part1:Ref Enabled:bool"},
+    {"JointInstance", "Part0:Ref Part1:Ref C0:CFrame C1:CFrame Enabled:bool"},
+    {"Constraint", "Attachment0:Ref Attachment1:Ref Enabled:bool Visible:bool"},
+    {"ParticleEmitter", "Texture:Content Rate:float Lifetime:NumberRange Speed:NumberRange Size:NumberSequence Transparency:NumberSequence Color:ColorSequence Rotation:NumberRange RotSpeed:NumberRange SpreadAngle:Vector2 Enabled:bool LightEmission:float EmissionDirection:token Acceleration:Vector3 Drag:float ZOffset:float"},
+    {"Tool", "CanBeDropped:bool Enabled:bool ManualActivationOnly:bool RequiresHandle:bool ToolTip:string Grip:CFrame"},
+    {"Animation", "AnimationId:string"},
+    {"StringValue", "Value:string"},
+    {"IntValue", "Value:int64"},
+    {"NumberValue", "Value:double"},
+    {"BoolValue", "Value:bool"},
+    {"Color3Value", "Value:Color3"},
+    {"Vector3Value", "Value:Vector3"},
+    {"CFrameValue", "Value:CFrame"},
+    {"BrickColorValue", "Value:BrickColor"},
+    {"ObjectValue", "Value:Ref"},
+    -- GUI
+    {"LayerCollector", "Enabled:bool ResetOnSpawn:bool ZIndexBehavior:token"},
+    {"ScreenGui", "IgnoreGuiInset:bool DisplayOrder:int"},
+    {"BillboardGui", "Active:bool Adornee:Ref AlwaysOnTop:bool Size:UDim2 StudsOffset:Vector3 MaxDistance:float LightInfluence:float"},
+    {"SurfaceGui", "Face:token Adornee:Ref AlwaysOnTop:bool CanvasSize:Vector2 LightInfluence:float SizingMode:token"},
+    {"GuiObject", "Active:bool AnchorPoint:Vector2 BackgroundColor3:Color3 BackgroundTransparency:float BorderColor3:Color3 BorderSizePixel:int ClipsDescendants:bool LayoutOrder:int Position:UDim2 Rotation:float Size:UDim2 SizeConstraint:token Visible:bool ZIndex:int AutomaticSize:token Selectable:bool"},
+    {"TextLabel", TEXT},
+    {"TextButton", TEXT .. " AutoButtonColor:bool"},
+    {"TextBox", TEXT .. " PlaceholderText:string PlaceholderColor3:Color3 ClearTextOnFocus:bool MultiLine:bool TextEditable:bool"},
+    {"ImageLabel", IMG},
+    {"ImageButton", IMG .. " AutoButtonColor:bool"},
+    {"ScrollingFrame", "CanvasSize:UDim2 CanvasPosition:Vector2 ScrollBarThickness:int ScrollingDirection:token AutomaticCanvasSize:token ScrollBarImageColor3:Color3 ScrollBarImageTransparency:float ScrollingEnabled:bool"},
+    {"UICorner", "CornerRadius:UDim"},
+    {"UIStroke", "Color:Color3 Thickness:float Transparency:float ApplyStrokeMode:token LineJoinMode:token Enabled:bool"},
+    {"UIGradient", "Color:ColorSequence Transparency:NumberSequence Rotation:float Offset:Vector2 Enabled:bool"},
+    {"UIListLayout", "Padding:UDim FillDirection:token HorizontalAlignment:token VerticalAlignment:token SortOrder:token"},
+    {"UIGridLayout", "CellPadding:UDim2 CellSize:UDim2 FillDirection:token HorizontalAlignment:token VerticalAlignment:token SortOrder:token"},
+    {"UIPadding", "PaddingTop:UDim PaddingBottom:UDim PaddingLeft:UDim PaddingRight:UDim"},
+    {"UIScale", "Scale:float"},
+    {"UIAspectRatioConstraint", "AspectRatio:float AspectType:token DominantAxis:token"},
+    {"UISizeConstraint", "MinSize:Vector2 MaxSize:Vector2"},
+    -- Script (Source & Disabled ditangani khusus)
+    {"Script", "RunContext:token"},
+}
+for _, g in ipairs(GROUPS) do
+    g.list = {}
+    for tok in g[2]:gmatch("%S+") do
+        local pn, pt = tok:match("^([%w_]+):([%w]+)$")
+        if pn then g.list[#g.list + 1] = {pn, pt} end
+    end
+end
+
+local DEGRADE = { UnionOperation = true, PartOperation = true, IntersectOperation = true, NegateOperation = true }
+
+-- ============================================================
+-- SUMBER SCRIPT
+-- ============================================================
+local function getScriptSource(scr)
+    -- 1) teks editor Studio Lite (versi yang sedang diedit)
+    local tb = scr:FindFirstChild("SL_CodeTextBox")
+    if tb and (tb:IsA("TextBox") or tb:IsA("TextLabel")) then
+        local t = tb.Text
+        if type(t) == "string" and t ~= ""
+            and t:sub(1, 17) ~= "-- [WANG Warning]" and t:sub(1, 9) ~= "-- [WANG]" then
+            return t, "editor"
+        end
+    end
+    -- 2) cache source dari WANG Importer (kalau dijalankan di executor yang sama)
+    local raw = type(_G.Ezy_RAW_SOURCES) == "table" and _G.Ezy_RAW_SOURCES[scr]
+    if type(raw) == "string" and raw ~= "" then return raw, "cache" end
+    -- 3) Source langsung
+    local ok, src = pcall(function() return scr.Source end)
+    if ok and type(src) == "string" and src ~= "" then return src, "source" end
+    -- 4) decompile (hanya ada di sebagian executor, tidak untuk server script)
+    if type(decompile) == "function" and not scr:IsA("Script") then
+        local ok2, d = pcall(decompile, scr)
+        if ok2 and type(d) == "string" and d ~= "" then return d, "decompile" end
+    end
+    return "-- [WANG EXPORT] source tidak bisa dibaca", "missing"
+end
+
+-- ============================================================
+-- FILTER
+-- ============================================================
+local function skipInst(ch, parent)
+    local cn = ch.ClassName
+    if cn == "Camera" or cn == "Terrain" or cn == "Player" or cn == "PlayerGui" then return true end
+    if parent:IsA("LuaSourceContainer") and ch.Name:sub(1, 3) == "SL_" then return true end
+    if parent == ReplicatedStorage and ch.Name == "StudioLiteFolder" then return true end
+    if parent == workspace and Players:GetPlayerFromCharacter(ch) then return true end
+    if ch:GetAttribute("EZY_LiveClone") then return true end
+    return false
+end
+
+-- ============================================================
+-- TULIS ITEM (rekursif)
+-- ============================================================
+local function writeItem(inst, ctx)
+    local w = ctx.w
+    local cls = inst.ClassName
+    if DEGRADE[cls] then cls = "Part"; ctx.degraded += 1 end
+
+    w:add(('<Item class="%s" referent="%s"><Properties>'):format(cls, refOf(inst, ctx)))
+
+    local name = inst.Name
+    if name:sub(1, 6) == "__EZY_" then name = "Mesh" end
+    w:add(ser("string", "Name", name, ctx))
+
+    local seen = { Name = true }
+    for _, g in ipairs(GROUPS) do
+        if inst:IsA(g[1]) then
+            for _, p in ipairs(g.list) do
+                local pn = p[1]
+                if not seen[pn] then
+                    seen[pn] = true
+                    local ok, v = pcall(function() return inst[pn] end)
+                    if ok and v ~= nil then
+                        if pn == "Anchored" and ctx.opts.restoreAnchored then
+                            local a = inst:GetAttribute("SL_Anchored")
+                            if type(a) == "boolean" then v = a end
+                        end
+                        local s = ser(p[2], pn, v, ctx)
+                        if s then w:add(s) end
+                    end
+                end
+            end
+        end
+    end
+
+    if inst:IsA("LuaSourceContainer") then
+        ctx.scripts += 1
+        if inst:IsA("Script") or inst:IsA("LocalScript") then
+            local en = inst:GetAttribute("EZY_OriginalEnabled")
+            if type(en) ~= "boolean" then
+                local ok, v = pcall(function() return inst.Enabled end)
+                if ok and type(v) == "boolean" then en = v
+                else
+                    local ok2, d = pcall(function() return inst.Disabled end)
+                    en = not (ok2 and d == true)
+                end
+            end
+            w:add(('<bool name="Disabled">%s</bool>'):format(tostring(not en)))
+        end
+        local src, how = getScriptSource(inst)
+        ctx.srcStat[how] = (ctx.srcStat[how] or 0) + 1
+        w:add('<ProtectedString name="Source">' .. cdata(src) .. '</ProtectedString>')
+    end
+
+    w:add("</Properties>")
+    ctx.count += 1
+    if ctx.count % 50 == 0 then ctx.progress(ctx.count) end
+    softYield()
+
+    for _, ch in ipairs(inst:GetChildren()) do
+        if not skipInst(ch, inst) then writeItem(ch, ctx) end
+    end
+    w:add("</Item>")
+end
+
+local HEADER = '<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta>'
+
+local SERVICES = {
+    "Workspace", "Lighting", "ReplicatedFirst", "ReplicatedStorage", "ServerScriptService",
+    "ServerStorage", "StarterGui", "StarterPack", "StarterPlayer", "Teams", "SoundService",
+}
+
+local function getService(name)
+    local ok, s = pcall(game.GetService, game, name)
+    return ok and s or nil
+end
+
+-- ============================================================
+-- EXPORT
+-- ============================================================
+local function doExport(mode, fileName, opts, cb)
+    if type(writefile) ~= "function" then error("writefile tidak tersedia di executor ini") end
+    if type(isfolder) == "function" and type(makefolder) == "function" and not isfolder(EXPORT_FOLDER) then
+        makefolder(EXPORT_FOLDER)
+    end
+
+    local ext = (mode == "PLACE") and ".rbxlx" or ".rbxmx"
+    fileName = tostring(fileName or ""):gsub("[^%w%-_ ]", "_")
+    if fileName == "" then fileName = "WANG_" .. mode .. "_" .. os.date("%H%M%S") end
+    local path = EXPORT_FOLDER .. "/" .. fileName .. ext
+
+    local svcs = {}
+    for _, n in ipairs(SERVICES) do
+        local s = getService(n)
+        if s then svcs[#svcs + 1] = s end
+    end
+
+    local roots = {}
+    if mode == "PLACE" then
+        roots = svcs
+    elseif mode == "WORKSPACE" then
+        for _, ch in ipairs(workspace:GetChildren()) do
+            if not skipInst(ch, workspace) then roots[#roots + 1] = ch end
+        end
+    elseif mode == "IMPORTED" then
+        local function collect(inst)
+            if inst:GetAttribute("EZY_ImportedObject") then
+                roots[#roots + 1] = inst
+                return
+            end
+            for _, ch in ipairs(inst:GetChildren()) do
+                if not skipInst(ch, inst) then collect(ch) end
+                softYield()
+            end
+        end
+        for _, s in ipairs(svcs) do collect(s) end
+    end
+    if #roots == 0 then error("tidak ada objek untuk diexport") end
+
+    local total = 1
+    for _, r in ipairs(roots) do total += #r:GetDescendants() + 1 end
+    cb.status(("EXPORTING • ~%d OBJECT"):format(total), P.warn)
+
+    local ctx = {
+        ref = {}, nextRef = 0, count = 0, scripts = 0, degraded = 0, srcStat = {},
+        w = Writer.new(path), total = total, opts = opts,
+    }
+    ctx.progress = function(c) cb.tick(ctx, c) end
+
+    ctx.w:add('<?xml version="1.0" encoding="utf-8"?>')
+    ctx.w:add(HEADER)
+    for _, r in ipairs(roots) do writeItem(r, ctx) end
+    ctx.w:add("</roblox>")
+    ctx.w:close()
+
+    local stat = {}
+    for k, v in pairs(ctx.srcStat) do stat[#stat + 1] = k .. ":" .. v end
+    table.sort(stat)
+    return path, ("EXPORT OK • %d obj • %d script (%s) • union→part:%d • %.1f KB")
+        :format(ctx.count, ctx.scripts, table.concat(stat, " "), ctx.degraded, ctx.w.bytes / 1024), ctx
+end
+
+-- ============================================================
+-- UI INTEGRATION  (tab EXPORT di dalam panel importer)
+-- ============================================================
+local mode = "PLACE"
+local optAnchor = true
+local optScan = true
+local busy = false
+local exportActive = false
+local lastPath = nil
+
+local MODES = {
+    PLACE     = { tag = "ALL", title = "FULL PLACE",     sub = "Semua service + script",     ext = ".rbxlx" },
+    WORKSPACE = { tag = "WS",  title = "WORKSPACE",      sub = "Isi Workspace saja",         ext = ".rbxmx" },
+    IMPORTED  = { tag = "NEW", title = "IMPORTED ONLY",  sub = "Hanya objek hasil import",   ext = ".rbxmx" },
+}
+local MODE_ORDER = { "PLACE", "WORKSPACE", "IMPORTED" }
+
+-- teks header
+for _, d in ipairs(header:GetDescendants()) do
+    if d:IsA("TextLabel") then
+        if d.Text == "V10.3 PINK 3D" then d.Text = "V11 PINK 3D · I/O"
+        elseif d.Text == "RBXL · RBXM · RBXLX" then d.Text = "IMPORT · EXPORT" end
+    end
+end
+
+-- ---------- tab bar: jadi 3 tab ----------
+tabs.RBXL.btn.Size = UDim2.new(1 / 3, -3, 1, 0)
+tabs.RBXL.btn.Position = UDim2.new(0, 0, 0, 0)
+tabs.RBXM.btn.Size = UDim2.new(1 / 3, -3, 1, 0)
+tabs.RBXM.btn.Position = UDim2.new(1 / 3, 0, 0, 0)
+
+local expTab = Instance.new("TextButton")
+expTab.Name = "Tab_EXPORT"
+expTab.Size = UDim2.new(1 / 3, 0, 1, 0)
+expTab.Position = UDim2.new(2 / 3, 0, 0, 0)
+expTab.BackgroundColor3 = P.bg3
+expTab.Text = "EXPORT"
+expTab.TextColor3 = P.subtext
+expTab.Font = Enum.Font.GothamBlack
+expTab.TextSize = 9
+expTab.AutoButtonColor = false
+expTab.ZIndex = 12
+expTab.Parent = tabBar
+round(expTab, 9)
+local expTabStroke = bevelStroke(expTab, true, 1.2, 0.3)
+shade(expTab, Color3.fromRGB(255, 255, 255), Color3.fromRGB(238, 238, 238), Color3.fromRGB(150, 150, 150))
+gloss(expTab, 0.5, 0.16)
+
+local function paintExpTab()
+    TweenService:Create(expTab, TweenInfo.new(0.15), {
+        BackgroundColor3 = exportActive and P.neonPurple or P.bg3,
+        TextColor3 = exportActive and P.text or P.subtext,
+    }):Play()
+    expTabStroke.Transparency = exportActive and 0 or 0.55
+end
+
+-- ---------- halaman export ----------
+local page = Instance.new("ScrollingFrame")
+page.Name = "ExportPage"
+page.Size = list.Size
+page.Position = list.Position
+page.BackgroundColor3 = P.panel
+page.BackgroundTransparency = 0.35
+page.BorderSizePixel = 0
+page.ScrollBarThickness = 3
+page.ScrollBarImageColor3 = P.neonPurple
+page.ScrollBarImageTransparency = 0.2
+page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+page.CanvasSize = UDim2.new()
+page.Visible = false
+page.ZIndex = 11
+page.Parent = main
+round(page, 12)
+stroke(page, P.line, 1, 0.4)
+bevelStroke(page, false, 1.2, 0.4)
+padding(page, 8, 10, 8, 8)
+
+local pageLayout = Instance.new("UIListLayout")
+pageLayout.Padding = UDim.new(0, 8)
+pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+pageLayout.Parent = page
+
+local function sectionLabel(text, order)
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1, -4, 0, 12)
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.TextColor3 = P.neonCyan
+    l.Font = Enum.Font.GothamBlack
+    l.TextSize = 8
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.LayoutOrder = order
+    l.ZIndex = 13
+    l.Parent = page
+    gradient(l, {
+        ColorSequenceKeypoint.new(0, P.neonCyan),
+        ColorSequenceKeypoint.new(1, P.neonPurple),
+    }, 0)
+    return l
+end
+
+-- ---------- kartu mode ----------
+local modeCards = {}
+local function selectMode(key)
+    mode = key
+    for k, m in pairs(modeCards) do
+        local on = (k == key)
+        TweenService:Create(m.card, TweenInfo.new(0.15), { BackgroundTransparency = on and 0 or 0.3 }):Play()
+        m.stroke.Transparency = on and 0 or 0.6
+        m.acc.BackgroundColor3 = on and P.neonPink or P.faint
+        m.dot.Visible = on
+        m.ext.TextColor3 = on and P.text or P.neonCyan
+    end
+end
+
+local function makeModeCard(key, order)
+    local info = MODES[key]
+    local c = Instance.new("TextButton")
+    c.Name = "Mode_" .. key
+    c.Size = UDim2.new(1, -4, 0, 46)
+    c.BackgroundColor3 = WHITE
+    c.BackgroundTransparency = 0.3
+    c.BorderSizePixel = 0
+    c.Text = ""
+    c.AutoButtonColor = false
+    c.LayoutOrder = order
+    c.ZIndex = 13
+    c.Parent = page
+    round(c, 10)
+    gradient(c, {
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(78, 22, 54)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(34, 12, 26)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 8, 12)),
+    }, 90)
+    local st = bevelStroke(c, true, 1.2, 0.6)
+    gloss(c, 0.45, 0.10)
+
+    local acc = Instance.new("Frame")
+    acc.Size = UDim2.new(0, 3, 0.7, 0)
+    acc.Position = UDim2.new(0, 0, 0.15, 0)
+    acc.BackgroundColor3 = P.faint
+    acc.BorderSizePixel = 0
+    acc.ZIndex = 14
+    acc.Parent = c
+
+    local tagBox = Instance.new("TextLabel")
+    tagBox.Size = UDim2.fromOffset(32, 26)
+    tagBox.Position = UDim2.fromOffset(10, 10)
+    tagBox.BackgroundColor3 = P.bg3
+    tagBox.Text = info.tag
+    tagBox.TextColor3 = P.neonCyan
+    tagBox.Font = Enum.Font.GothamBlack
+    tagBox.TextSize = 8
+    tagBox.ZIndex = 14
+    tagBox.Parent = c
+    round(tagBox, 7)
+    stroke(tagBox, P.neonCyan, 1, 0.55)
+
+    local t = Instance.new("TextLabel")
+    t.Size = UDim2.new(1, -150, 0, 14)
+    t.Position = UDim2.fromOffset(50, 8)
+    t.BackgroundTransparency = 1
+    t.Text = info.title
+    t.TextColor3 = P.text
+    t.Font = Enum.Font.GothamBold
+    t.TextSize = 9
+    t.TextXAlignment = Enum.TextXAlignment.Left
+    t.TextTruncate = Enum.TextTruncate.AtEnd
+    t.ZIndex = 14
+    t.Parent = c
+
+    local s = Instance.new("TextLabel")
+    s.Size = UDim2.new(1, -150, 0, 12)
+    s.Position = UDim2.fromOffset(50, 25)
+    s.BackgroundTransparency = 1
+    s.Text = info.sub
+    s.TextColor3 = P.faint
+    s.Font = Enum.Font.GothamMedium
+    s.TextSize = 7
+    s.TextXAlignment = Enum.TextXAlignment.Left
+    s.TextTruncate = Enum.TextTruncate.AtEnd
+    s.ZIndex = 14
+    s.Parent = c
+
+    local ext = Instance.new("TextLabel")
+    ext.Size = UDim2.fromOffset(50, 16)
+    ext.Position = UDim2.new(1, -84, 0.5, -8)
+    ext.BackgroundColor3 = P.bg3
+    ext.Text = info.ext
+    ext.TextColor3 = P.neonCyan
+    ext.Font = Enum.Font.Code
+    ext.TextSize = 8
+    ext.ZIndex = 14
+    ext.Parent = c
+    round(ext, 5)
+    stroke(ext, P.neonCyan, 1, 0.6)
+
+    local radio = Instance.new("Frame")
+    radio.Size = UDim2.fromOffset(16, 16)
+    radio.Position = UDim2.new(1, -26, 0.5, -8)
+    radio.BackgroundTransparency = 1
+    radio.ZIndex = 14
+    radio.Parent = c
+    round(radio, 8)
+    stroke(radio, P.neonPink, 1.5, 0.2)
+
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.fromOffset(8, 8)
+    dot.Position = UDim2.fromOffset(4, 4)
+    dot.BackgroundColor3 = P.neonPink
+    dot.BorderSizePixel = 0
+    dot.ZIndex = 15
+    dot.Visible = false
+    dot.Parent = radio
+    round(dot, 4)
+
+    modeCards[key] = { card = c, stroke = st, acc = acc, dot = dot, ext = ext }
+    c.MouseButton1Click:Connect(function() selectMode(key) end)
+    c.MouseEnter:Connect(function()
+        if mode ~= key then TweenService:Create(c, TweenInfo.new(0.12), { BackgroundTransparency = 0.15 }):Play() end
+    end)
+    c.MouseLeave:Connect(function()
+        if mode ~= key then TweenService:Create(c, TweenInfo.new(0.12), { BackgroundTransparency = 0.3 }):Play() end
+    end)
+end
+
+sectionLabel("EXPORT MODE", 1)
+for i, key in ipairs(MODE_ORDER) do makeModeCard(key, 1 + i) end
+
+-- ---------- nama file ----------
+sectionLabel("FILE NAME", 5)
+local nameWrap = Instance.new("Frame")
+nameWrap.Size = UDim2.new(1, -4, 0, 30)
+nameWrap.BackgroundColor3 = P.panel
+nameWrap.BackgroundTransparency = 0.15
+nameWrap.BorderSizePixel = 0
+nameWrap.LayoutOrder = 6
+nameWrap.ZIndex = 13
+nameWrap.Parent = page
+round(nameWrap, 9)
+stroke(nameWrap, P.line, 1, 0.4)
+bevelStroke(nameWrap, false, 1.2, 0.35)
+innerShadow(nameWrap, true, 0.5, 0.4)
+
+local nameBox = Instance.new("TextBox")
+nameBox.Size = UDim2.new(1, -78, 1, 0)
+nameBox.Position = UDim2.fromOffset(10, 0)
+nameBox.BackgroundTransparency = 1
+nameBox.PlaceholderText = "kosong = otomatis"
+nameBox.PlaceholderColor3 = P.faint
+nameBox.Text = ""
+nameBox.TextColor3 = P.text
+nameBox.Font = Enum.Font.GothamMedium
+nameBox.TextSize = 10
+nameBox.TextXAlignment = Enum.TextXAlignment.Left
+nameBox.ClearTextOnFocus = false
+nameBox.ZIndex = 14
+nameBox.Parent = nameWrap
+
+local extHint = Instance.new("TextLabel")
+extHint.Size = UDim2.fromOffset(62, 30)
+extHint.Position = UDim2.new(1, -66, 0, 0)
+extHint.BackgroundTransparency = 1
+extHint.Text = ".rbxlx"
+extHint.TextColor3 = P.neonCyan
+extHint.Font = Enum.Font.Code
+extHint.TextSize = 9
+extHint.TextXAlignment = Enum.TextXAlignment.Right
+extHint.ZIndex = 14
+extHint.Parent = nameWrap
+
+local _selectMode = selectMode
+selectMode = function(key)
+    _selectMode(key)
+    extHint.Text = MODES[key].ext
+end
+
+-- ---------- opsi ----------
+sectionLabel("OPTIONS", 7)
+local optRow = Instance.new("Frame")
+optRow.Size = UDim2.new(1, -4, 0, 28)
+optRow.BackgroundTransparency = 1
+optRow.LayoutOrder = 8
+optRow.ZIndex = 13
+optRow.Parent = page
+
+local function makeToggle(text, xScale, xOff, default, onChange)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0.5, -3, 1, 0)
+    b.Position = UDim2.new(xScale, xOff, 0, 0)
+    b.BackgroundColor3 = P.panel
+    b.BackgroundTransparency = 0.15
+    b.Text = ""
+    b.AutoButtonColor = false
+    b.ZIndex = 13
+    b.Parent = optRow
+    round(b, 9)
+    stroke(b, P.line, 1, 0.4)
+
+    local sw = Instance.new("Frame")
+    sw.Size = UDim2.fromOffset(26, 14)
+    sw.Position = UDim2.new(0, 8, 0.5, -7)
+    sw.BackgroundColor3 = P.bg3
+    sw.BorderSizePixel = 0
+    sw.ZIndex = 14
+    sw.Parent = b
+    round(sw, 7)
+
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.fromOffset(10, 10)
+    knob.Position = UDim2.fromOffset(2, 2)
+    knob.BackgroundColor3 = WHITE
+    knob.BorderSizePixel = 0
+    knob.ZIndex = 15
+    knob.Parent = sw
+    round(knob, 5)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -44, 1, 0)
+    lbl.Position = UDim2.fromOffset(40, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = text
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 8
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextTruncate = Enum.TextTruncate.AtEnd
+    lbl.ZIndex = 14
+    lbl.Parent = b
+
+    local state = default
+    local function paint()
+        TweenService:Create(sw, TweenInfo.new(0.14), { BackgroundColor3 = state and P.neonPurple or P.bg3 }):Play()
+        TweenService:Create(knob, TweenInfo.new(0.14, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = state and UDim2.fromOffset(14, 2) or UDim2.fromOffset(2, 2),
+        }):Play()
+        lbl.TextColor3 = state and P.text or P.subtext
+    end
+    b.MouseButton1Click:Connect(function()
+        state = not state
+        paint()
+        onChange(state)
+    end)
+    paint()
+end
+makeToggle("ANCHOR ASLI (SL)", 0, 0, true, function(v) optAnchor = v end)
+makeToggle("AUTO SCAN", 0.5, 3, true, function(v) optScan = v end)
+
+-- ---------- tombol export ----------
+local holder = Instance.new("Frame")
+holder.Size = UDim2.new(1, -4, 0, 44)
+holder.BackgroundTransparency = 1
+holder.LayoutOrder = 9
+holder.ZIndex = 13
+holder.Parent = page
+
+local expBtn = Instance.new("TextButton")
+expBtn.Name = "ExportBtn"
+expBtn.Size = UDim2.new(1, 0, 0, 36)
+expBtn.Position = UDim2.new(0, 0, 0, 0)
+expBtn.BackgroundColor3 = P.neonPurple
+expBtn.Text = "EXPORT"
+expBtn.TextColor3 = P.text
+expBtn.Font = Enum.Font.GothamBlack
+expBtn.TextSize = 12
+expBtn.AutoButtonColor = false
+expBtn.ClipsDescendants = true
+expBtn.ZIndex = 14
+expBtn.Parent = holder
+round(expBtn, 11)
+bevelStroke(expBtn, true, 1.4, 0.05)
+shade(expBtn, Color3.fromRGB(255, 255, 255), Color3.fromRGB(238, 238, 238), Color3.fromRGB(165, 165, 165))
+gloss(expBtn, 0.5, 0.18)
+lip(expBtn, 4)
+
+local sheen = Instance.new("Frame")
+sheen.Size = UDim2.new(0, 22, 1.8, 0)
+sheen.Position = UDim2.new(-0.25, 0, -0.4, 0)
+sheen.Rotation = 18
+sheen.BackgroundColor3 = WHITE
+sheen.BackgroundTransparency = 0.8
+sheen.BorderSizePixel = 0
+sheen.ZIndex = 17
+sheen.Parent = expBtn
+
+task.spawn(function()
+    while expBtn.Parent do
+        if page.Visible and not busy then
+            sheen.Position = UDim2.new(-0.25, 0, -0.4, 0)
+            TweenService:Create(sheen, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                Position = UDim2.new(1.15, 0, -0.4, 0),
+            }):Play()
+        end
+        task.wait(3)
+    end
+end)
+
+-- ---------- statistik ----------
+local statsRow = Instance.new("Frame")
+statsRow.Size = UDim2.new(1, -4, 0, 38)
+statsRow.BackgroundTransparency = 1
+statsRow.LayoutOrder = 10
+statsRow.ZIndex = 13
+statsRow.Parent = page
+
+local function makeChip(caption, idx)
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1 / 3, -4, 1, 0)
+    f.Position = UDim2.new((idx - 1) / 3, 0, 0, 0)
+    f.BackgroundColor3 = P.panel
+    f.BackgroundTransparency = 0.2
+    f.BorderSizePixel = 0
+    f.ZIndex = 13
+    f.Parent = statsRow
+    round(f, 9)
+    stroke(f, P.line, 1, 0.45)
+    bevelStroke(f, false, 1, 0.5)
+
+    local v = Instance.new("TextLabel")
+    v.Size = UDim2.new(1, 0, 0, 18)
+    v.Position = UDim2.fromOffset(0, 4)
+    v.BackgroundTransparency = 1
+    v.Text = "0"
+    v.TextColor3 = P.neonCyan
+    v.Font = Enum.Font.GothamBlack
+    v.TextSize = 12
+    v.ZIndex = 14
+    v.Parent = f
+
+    local c = Instance.new("TextLabel")
+    c.Size = UDim2.new(1, 0, 0, 10)
+    c.Position = UDim2.fromOffset(0, 24)
+    c.BackgroundTransparency = 1
+    c.Text = caption
+    c.TextColor3 = P.faint
+    c.Font = Enum.Font.GothamBold
+    c.TextSize = 7
+    c.ZIndex = 14
+    c.Parent = f
+    return v
+end
+local chipObj = makeChip("OBJECTS", 1)
+local chipScr = makeChip("SCRIPTS", 2)
+local chipSize = makeChip("SIZE", 3)
+
+local function fmtSize(b)
+    if b < 1024 * 1024 then return ("%d KB"):format(math.floor(b / 1024 + 0.5)) end
+    return ("%.1f MB"):format(b / 1048576)
+end
+local function setChips(ctx)
+    chipObj.Text = tostring(ctx.count)
+    chipScr.Text = tostring(ctx.scripts)
+    chipSize.Text = fmtSize(ctx.w.bytes)
+end
+
+-- ---------- file terakhir ----------
+local lastRow = Instance.new("Frame")
+lastRow.Size = UDim2.new(1, -4, 0, 34)
+lastRow.BackgroundColor3 = P.panel
+lastRow.BackgroundTransparency = 0.2
+lastRow.BorderSizePixel = 0
+lastRow.LayoutOrder = 11
+lastRow.ZIndex = 13
+lastRow.Parent = page
+round(lastRow, 9)
+stroke(lastRow, P.line, 1, 0.45)
+
+local lastLabel = Instance.new("TextLabel")
+lastLabel.Size = UDim2.new(1, -72, 1, 0)
+lastLabel.Position = UDim2.fromOffset(10, 0)
+lastLabel.BackgroundTransparency = 1
+lastLabel.Text = "BELUM ADA EXPORT"
+lastLabel.TextColor3 = P.faint
+lastLabel.Font = Enum.Font.Code
+lastLabel.TextSize = 8
+lastLabel.TextXAlignment = Enum.TextXAlignment.Left
+lastLabel.TextTruncate = Enum.TextTruncate.AtEnd
+lastLabel.ZIndex = 14
+lastLabel.Parent = lastRow
+
+local copyBtn = Instance.new("TextButton")
+copyBtn.Size = UDim2.fromOffset(52, 22)
+copyBtn.Position = UDim2.new(1, -60, 0.5, -11)
+copyBtn.BackgroundColor3 = P.bg3
+copyBtn.Text = "COPY"
+copyBtn.TextColor3 = P.neonCyan
+copyBtn.Font = Enum.Font.GothamBlack
+copyBtn.TextSize = 8
+copyBtn.AutoButtonColor = false
+copyBtn.ZIndex = 14
+copyBtn.Parent = lastRow
+round(copyBtn, 7)
+stroke(copyBtn, P.neonCyan, 1, 0.55)
+copyBtn.MouseButton1Click:Connect(function()
+    if lastPath and type(setclipboard) == "function" then
+        pcall(setclipboard, lastPath)
+        setStatus("PATH COPIED • " .. lastPath, P.ok)
+    elseif not lastPath then
+        setStatus("BELUM ADA FILE UNTUK DICOPY", P.warn)
+    else
+        setStatus("setclipboard tidak tersedia", P.warn)
+    end
+end)
+
+-- ---------- catatan ----------
+local note = Instance.new("TextLabel")
+note.Size = UDim2.new(1, -4, 0, 44)
+note.BackgroundTransparency = 1
+note.Text = "Script ikut ter-export bila terlihat di client (hasil import / replicated). Source diambil dari editor Studio Lite. Union diubah jadi Part. File tersimpan di folder " .. EXPORT_FOLDER .. "/"
+note.TextColor3 = P.faint
+note.Font = Enum.Font.GothamMedium
+note.TextSize = 7
+note.TextWrapped = true
+note.TextXAlignment = Enum.TextXAlignment.Left
+note.TextYAlignment = Enum.TextYAlignment.Top
+note.LayoutOrder = 12
+note.ZIndex = 13
+note.Parent = page
+
+selectMode("PLACE")
+
+-- ---------- logika tab ----------
+local _origRefresh = refreshTabs
+refreshTabs = function(...)
+    local counts = _origRefresh(...)
+    if exportActive then
+        for _, t in pairs(tabs) do
+            TweenService:Create(t.btn, TweenInfo.new(0.15), { BackgroundColor3 = P.bg3, TextColor3 = P.subtext }):Play()
+            t.stroke.Transparency = 0.55
+        end
+    end
+    paintExpTab()
+    return counts
+end
+
+local function setExportActive(on)
+    exportActive = on
+    page.Visible = on
+    list.Visible = not on
+    filterCards()
+end
+expTab.MouseButton1Click:Connect(function() setExportActive(true) end)
+tabs.RBXL.btn.MouseButton1Click:Connect(function() if exportActive then setExportActive(false) end end)
+tabs.RBXM.btn.MouseButton1Click:Connect(function() if exportActive then setExportActive(false) end end)
+paintExpTab()
+
+-- ---------- jalankan export ----------
+local cb = {
+    status = function(t, c) setStatus(t, c) end,
+    tick = function(ctx, c)
+        local r = math.min(c / math.max(ctx.total, 1), 1)
+        setImportProgress(0.05 + 0.9 * r, ("WRITING %d / %d"):format(c, ctx.total))
+        setChips(ctx)
+    end,
+}
+
+expBtn.MouseButton1Click:Connect(function()
+    if busy then return end
+    busy = true
+    chipObj.Text, chipScr.Text, chipSize.Text = "0", "0", "0 KB"
+    setImportProgress(0.02, "PREPARING EXPORT")
+    setStatus("EXPORTING • " .. MODES[mode].title, P.warn)
+
+    task.spawn(function()
+        local i = 0
+        while busy and expBtn.Parent do
+            i = i % 3 + 1
+            expBtn.Text = "EXPORTING" .. string.rep(".", i)
+            task.wait(0.35)
+        end
+    end)
+
+    task.spawn(function()
+        local ok, path, msg, ctx = pcall(doExport, mode, nameBox.Text, { restoreAnchored = optAnchor }, cb)
+        busy = false
+        if ok then
+            setChips(ctx)
+            lastPath = path
+            lastLabel.Text = path
+            lastLabel.TextColor3 = P.text
+            setImportProgress(1, "EXPORT COMPLETE")
+            setStatus(msg, P.ok)
+            expBtn.Text = "DONE"
+            showEZYNotification(__s("NOTIFY"), path .. " tersimpan.", true)
+            if optScan then pcall(scanNow) end
+        else
+            expBtn.Text = "FAILED"
+            setStatus("EXPORT ERROR: " .. tostring(path), P.danger)
+            showEZYNotification(__s("FAIL"), tostring(path), false)
+        end
+        task.delay(1.8, function()
+            if expBtn.Parent and not busy then expBtn.Text = "EXPORT" end
+        end)
+    end)
+end)
+
+print("[WANG] EXPORT ADDON loaded — tab EXPORT aktif")
+
+end, function(e)
+    warn("[WANG EXPORT] ERROR: " .. tostring(e) .. "\n" .. debug.traceback())
+end)
+
 print("[WANG] RBXL CORE V2 STABILITY loaded")
